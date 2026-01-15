@@ -4,151 +4,169 @@
 <meta charset="UTF-8">
 <title>Mini Kahoot</title>
 
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <style>
-body {
-  font-family: sans-serif;
-  background: #f2f2f2;
-  text-align: center;
-}
-.card {
-  background: white;
-  padding: 20px;
-  margin: 20px auto;
-  border-radius: 12px;
-  max-width: 400px;
-}
-button {
-  width: 100%;
-  padding: 12px;
-  margin: 6px 0;
-  font-size: 18px;
-  border-radius: 8px;
-  border: none;
-  background: #4f46e5;
-  color: white;
-}
-button:hover {
-  background: #4338ca;
-}
-input {
-  width: 100%;
-  padding: 10px;
-  font-size: 16px;
-}
+body { font-family:sans-serif; background:#f3f4f6; text-align:center; }
+.card { background:#fff; padding:20px; margin:20px auto; border-radius:14px; max-width:420px; }
+button { width:100%; padding:14px; margin:6px 0; font-size:18px; border:none; border-radius:10px; background:#4f46e5; color:white; }
+button:disabled { background:#9ca3af; }
+input { width:100%; padding:12px; font-size:16px; }
+.choice { background:#6366f1; }
+.timer { font-size:22px; font-weight:bold; color:#dc2626; }
 </style>
 </head>
 <body>
 
 <h1>🎮 Mini Kahoot</h1>
 
-<div class="card" id="login">
-  <h2>เข้าร่วมเกม</h2>
-  <input id="name" placeholder="ชื่อผู้เล่น">
-  <button onclick="joinGame()">เข้าร่วม</button>
+<div class="card" id="home">
+  <button onclick="createRoom()">🎤 สร้างห้อง (Host)</button>
+  <hr>
+  <input id="pinInput" placeholder="PIN ห้อง">
+  <input id="nameInput" placeholder="ชื่อผู้เล่น">
+  <button onclick="joinRoom()">เข้าร่วม</button>
+</div>
+
+<div class="card" id="host" style="display:none;">
+  <h2>HOST</h2>
+  <p>PIN: <b id="roomPin"></b></p>
+  <button onclick="nextQuestion()">▶ ข้อถัดไป</button>
 </div>
 
 <div class="card" id="game" style="display:none;">
-  <h2 id="question">กำลังโหลดคำถาม...</h2>
+  <h2 id="question"></h2>
+  <div class="timer" id="timer"></div>
   <div id="choices"></div>
 </div>
 
 <div class="card">
-  <h2>🏆 คะแนน</h2>
+  <h2>🏆 Leaderboard</h2>
   <ul id="scores"></ul>
 </div>
 
 <script>
-// ================= Firebase Config =================
-const firebaseConfig = {
+// ===== Firebase =====
+firebase.initializeApp({
   apiKey: "AIzaSyCWZRDRx0SYNivY2BIsepJZxwjkYKtnKms",
   authDomain: "game-6fda9.firebaseapp.com",
   databaseURL: "https://game-6fda9-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "game-6fda9",
-  storageBucket: "game-6fda9.firebasestorage.app",
-  messagingSenderId: "121486223888",
-  appId: "1:121486223888:web:10f81ae5f492e80d31b895",
-  measurementId: "G-3KK1KLJ71E"
-};
-
-firebase.initializeApp(firebaseConfig);
+});
 const db = firebase.database();
 
-// ================= Game Config =================
-const room = "room1";
-const playerId = Math.random().toString(36).substr(2, 9);
+// ===== Game Data =====
+const questions = [
+  { text:"205 + 330 = ?", choices:["500","520","535","550"], answer:1 },
+  { text:"100 × 5 = ?", choices:["200","300","500","1000"], answer:2 },
+  { text:"900 ÷ 3 = ?", choices:["200","300","400","500"], answer:1 }
+];
 
-// คำถาม (แก้ไขตรงนี้ได้)
-const questionData = {
-  text: "205 + 330 = เท่าไหร่?",
-  choices: ["500", "520", "535", "550"],
-  answer: 1
-};
+let room = "";
+let playerId = Math.random().toString(36).substr(2,9);
+let isHost = false;
+let answered = false;
 
-// ตั้งคำถาม (ทุกคนเห็นเหมือนกัน)
-db.ref(room + "/question").set(questionData);
+// ===== Create Room =====
+function createRoom(){
+  room = Math.floor(100000 + Math.random()*900000).toString();
+  isHost = true;
+  document.getElementById("home").style.display="none";
+  document.getElementById("host").style.display="block";
+  document.getElementById("roomPin").innerText = room;
 
-// ================= Join Game =================
-function joinGame() {
-  const name = document.getElementById("name").value;
-  if (!name) {
-    alert("กรุณาใส่ชื่อ");
-    return;
-  }
-
-  db.ref(room + "/players/" + playerId).set({
-    name: name,
-    score: 0
+  db.ref(room).set({
+    qIndex: -1,
+    timer: 0,
+    players: {}
   });
-
-  document.getElementById("login").style.display = "none";
-  document.getElementById("game").style.display = "block";
 }
 
-// ================= Show Question =================
-db.ref(room + "/question").on("value", snapshot => {
-  const q = snapshot.val();
-  if (!q) return;
+// ===== Join Room =====
+function joinRoom(){
+  room = document.getElementById("pinInput").value;
+  const name = document.getElementById("nameInput").value;
+  if(!room || !name) return alert("กรอก PIN และชื่อ");
 
+  db.ref(room + "/players/" + playerId).set({
+    name:name,
+    score:0
+  });
+
+  document.getElementById("home").style.display="none";
+  document.getElementById("game").style.display="block";
+}
+
+// ===== Host: Next Question =====
+function nextQuestion(){
+  db.ref(room + "/qIndex").transaction(i => (i ?? -1) + 1);
+  db.ref(room + "/timer").set(10);
+}
+
+// ===== Question Listener =====
+db.ref().on("value", snap=>{
+  if(!room) return;
+  const data = snap.child(room).val();
+  if(!data) return;
+
+  const q = questions[data.qIndex];
+  if(!q) return;
+
+  answered = false;
   document.getElementById("question").innerText = q.text;
-  const choicesDiv = document.getElementById("choices");
-  choicesDiv.innerHTML = "";
+  const div = document.getElementById("choices");
+  div.innerHTML = "";
 
-  q.choices.forEach((choice, index) => {
+  q.choices.forEach((c,i)=>{
     const btn = document.createElement("button");
-    btn.innerText = choice;
-    btn.onclick = () => submitAnswer(index);
-    choicesDiv.appendChild(btn);
+    btn.className="choice";
+    btn.innerText=c;
+    btn.onclick=()=>submitAnswer(i,q.answer,data.timer);
+    div.appendChild(btn);
   });
 });
 
-// ================= Answer =================
-function submitAnswer(choiceIndex) {
-  if (choiceIndex === questionData.answer) {
-    db.ref(room + "/players/" + playerId + "/score")
-      .transaction(score => (score || 0) + 1);
+// ===== Answer =====
+function submitAnswer(choice,correct,time){
+  if(answered) return;
+  answered=true;
+
+  if(choice===correct){
+    db.ref(room+"/players/"+playerId+"/score")
+      .transaction(s=>(s||0)+time);
   }
-  alert("ส่งคำตอบแล้ว!");
 }
 
-// ================= Scoreboard =================
-db.ref(room + "/players").on("value", snapshot => {
-  const players = snapshot.val() || {};
-  const scoreList = document.getElementById("scores");
-  scoreList.innerHTML = "";
+// ===== Timer =====
+setInterval(()=>{
+  if(!isHost || !room) return;
+  db.ref(room+"/timer").transaction(t=>{
+    if(t>0) return t-1;
+    return t;
+  });
+},1000);
 
+db.ref().on("value",snap=>{
+  if(!room) return;
+  const t = snap.child(room+"/timer").val();
+  if(t!=null) document.getElementById("timer").innerText="⏱ "+t;
+});
+
+// ===== Leaderboard =====
+db.ref().on("value",snap=>{
+  if(!room) return;
+  const players = snap.child(room+"/players").val()||{};
+  const ul = document.getElementById("scores");
+  ul.innerHTML="";
   Object.values(players)
-    .sort((a, b) => b.score - a.score)
-    .forEach(player => {
-      const li = document.createElement("li");
-      li.innerText = `${player.name} : ${player.score}`;
-      scoreList.appendChild(li);
+    .sort((a,b)=>b.score-a.score)
+    .forEach(p=>{
+      const li=document.createElement("li");
+      li.innerText=`${p.name}: ${p.score}`;
+      ul.appendChild(li);
     });
 });
 </script>
-
 </body>
 </html>
