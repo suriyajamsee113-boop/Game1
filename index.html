@@ -157,29 +157,15 @@
             setTimeout(() => toast.remove(), 2500);
         }
 
-        // --- Auth & Init ---
-        async function init() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await auth.signInWithCustomToken(__initial_auth_token);
-                } else {
-                    await auth.signInAnonymously();
-                }
-                
-                // Check for Game ID in URL
-                const urlParams = new URLSearchParams(window.location.search);
-                const gameParam = urlParams.get('game');
-                if (gameParam) {
-                    document.getElementById('input-game-id').value = gameParam;
-                }
-
-                document.getElementById('loading').classList.add('hidden');
-                showScreen('screen-home');
-            } catch (err) {
-                console.error(err);
-                document.getElementById('loading').innerHTML = "เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณารีเฟรชหน้าจอ";
-            }
-        }
+        const firebaseConfig = {
+  apiKey: "AIzaSyCWZRDRx0SYNivY2BIsepJZxwjkYKtnKms",
+  authDomain: "game-6fda9.firebaseapp.com",
+  projectId: "game-6fda9",
+  storageBucket: "game-6fda9.firebasestorage.app",
+  messagingSenderId: "121486223888",
+  appId: "1:121486223888:web:10f81ae5f492e80d31b895",
+  measurementId: "G-3KK1KLJ71E"
+};
 
         // --- Game Logic ---
 
