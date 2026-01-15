@@ -1,226 +1,153 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Math Quiz Party</title>
+<meta charset="UTF-8">
+<title>Mini Kahoot</title>
 
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
-
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap');
-    body { font-family: 'Kanit', sans-serif; }
-  </style>
+<style>
+body {
+  font-family: sans-serif;
+  background: #f2f2f2;
+  text-align: center;
+}
+.card {
+  background: white;
+  padding: 20px;
+  margin: 20px auto;
+  border-radius: 12px;
+  max-width: 400px;
+}
+button {
+  width: 100%;
+  padding: 12px;
+  margin: 6px 0;
+  font-size: 18px;
+  border-radius: 8px;
+  border: none;
+  background: #4f46e5;
+  color: white;
+}
+button:hover {
+  background: #4338ca;
+}
+input {
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+}
+</style>
 </head>
+<body>
 
-<body class="bg-indigo-900 min-h-screen flex items-center justify-center p-4">
+<h1>🎮 Mini Kahoot</h1>
 
-<div id="app" class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6">
+<div class="card" id="login">
+  <h2>เข้าร่วมเกม</h2>
+  <input id="name" placeholder="ชื่อผู้เล่น">
+  <button onclick="joinGame()">เข้าร่วม</button>
+</div>
 
-  <!-- HOME -->
-  <div id="screen-home" class="text-center">
-    <h1 class="text-3xl font-bold text-indigo-600 mb-4">Math Quiz Party 🎮</h1>
+<div class="card" id="game" style="display:none;">
+  <h2 id="question">กำลังโหลดคำถาม...</h2>
+  <div id="choices"></div>
+</div>
 
-    <button id="btn-host"
-      class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl mb-4">
-      สร้างห้อง (โฮสต์)
-    </button>
-
-    <input id="join-id"
-      class="w-full border border-gray-300 rounded-xl px-4 py-3 mb-3 text-center uppercase"
-      placeholder="รหัสห้อง">
-
-    <button id="btn-join"
-      class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl">
-      เข้าร่วมเกม
-    </button>
-  </div>
-
-  <!-- NAME -->
-  <div id="screen-name" class="hidden text-center">
-    <h2 class="text-xl font-bold mb-3">ใส่ชื่อของคุณ</h2>
-    <input id="player-name"
-      class="w-full border border-gray-300 rounded-xl px-4 py-3 mb-3 text-center">
-    <button id="btn-enter"
-      class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl">
-      เข้าห้อง
-    </button>
-  </div>
-
-  <!-- LOBBY -->
-  <div id="screen-lobby" class="hidden">
-    <h2 class="text-center font-bold mb-3">
-      ห้อง: <span id="room-id" class="text-pink-500"></span>
-    </h2>
-
-    <ul id="player-list" class="mb-4 space-y-1"></ul>
-
-    <button id="btn-start"
-      class="hidden w-full bg-emerald-500 text-white font-bold py-3 rounded-xl">
-      เริ่มเกม
-    </button>
-  </div>
-
-  <!-- QUIZ -->
-  <div id="screen-quiz" class="hidden text-center">
-    <h2 id="question" class="text-xl font-bold mb-4"></h2>
-    <div id="choices" class="space-y-3"></div>
-  </div>
-
-  <!-- RESULT -->
-  <div id="screen-result" class="hidden">
-    <h2 class="text-xl font-bold text-center mb-4">ผลคะแนน</h2>
-    <ul id="score-list" class="space-y-2"></ul>
-    <button onclick="location.reload()"
-      class="mt-4 w-full bg-gray-200 py-3 rounded-xl font-bold">
-      กลับหน้าแรก
-    </button>
-  </div>
-
+<div class="card">
+  <h2>🏆 คะแนน</h2>
+  <ul id="scores"></ul>
 </div>
 
 <script>
-/* ================= FIREBASE SETUP ================= */
+// ================= Firebase Config =================
 const firebaseConfig = {
-  apiKey: "AIzaSyCwZRDRx0SYNivY2BIsepJZxwjKYkTnKms",
+  apiKey: "AIzaSyCWZRDRx0SYNivY2BIsepJZxwjkYKtnKms",
   authDomain: "game-6fda9.firebaseapp.com",
+  databaseURL: "https://game-6fda9-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "game-6fda9",
   storageBucket: "game-6fda9.firebasestorage.app",
   messagingSenderId: "121486223888",
-  appId: "1:121486223888:web:10f81ae5f492e80d31b895"
+  appId: "1:121486223888:web:10f81ae5f492e80d31b895",
+  measurementId: "G-3KK1KLJ71E"
 };
 
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const auth = firebase.auth();
+const db = firebase.database();
 
-/* ================= STATE ================= */
-let uid = "";
-let room = "";
-let name = "";
-let isHost = false;
-let score = 0;
+// ================= Game Config =================
+const room = "room1";
+const playerId = Math.random().toString(36).substr(2, 9);
 
-/* ================= QUESTIONS ================= */
-const QUESTIONS = [
-  { q: "205 + 330 = ?", c: ["535","525","545","635"], a: 0 },
-  { q: "12 × 12 = ?", c: ["124","144","164","142"], a: 1 },
-  { q: "50% ของ 1000 = ?", c: ["250","400","500","600"], a: 2 }
-];
+// คำถาม (แก้ไขตรงนี้ได้)
+const questionData = {
+  text: "205 + 330 = เท่าไหร่?",
+  choices: ["500", "520", "535", "550"],
+  answer: 1
+};
 
-/* ================= INIT ================= */
-async function init() {
-  await auth.signInAnonymously();
-  uid = auth.currentUser.uid;
-}
-init();
+// ตั้งคำถาม (ทุกคนเห็นเหมือนกัน)
+db.ref(room + "/question").set(questionData);
 
-/* ================= HELPERS ================= */
-function show(id) {
-  document.querySelectorAll("#app > div").forEach(d => d.classList.add("hidden"));
-  document.getElementById(id).classList.remove("hidden");
-}
+// ================= Join Game =================
+function joinGame() {
+  const name = document.getElementById("name").value;
+  if (!name) {
+    alert("กรุณาใส่ชื่อ");
+    return;
+  }
 
-/* ================= ELEMENTS ================= */
-const btnHost   = document.getElementById("btn-host");
-const btnJoin   = document.getElementById("btn-join");
-const btnEnter  = document.getElementById("btn-enter");
-const btnStart  = document.getElementById("btn-start");
-
-/* ================= HOST ================= */
-btnHost.onclick = async () => {
-  room = Math.random().toString(36).substring(2,8).toUpperCase();
-  isHost = true;
-
-  await db.doc(`rooms/${room}`).set({
-    host: uid,
-    q: -1,
-    status: "waiting"
+  db.ref(room + "/players/" + playerId).set({
+    name: name,
+    score: 0
   });
 
-  show("screen-name");
-};
+  document.getElementById("login").style.display = "none";
+  document.getElementById("game").style.display = "block";
+}
 
-/* ================= JOIN ================= */
-btnJoin.onclick = async () => {
-  room = document.getElementById("join-id").value.toUpperCase();
-  const snap = await db.doc(`rooms/${room}`).get();
-  if (!snap.exists) return alert("ไม่พบห้อง");
-  show("screen-name");
-};
+// ================= Show Question =================
+db.ref(room + "/question").on("value", snapshot => {
+  const q = snapshot.val();
+  if (!q) return;
 
-btnEnter.onclick = async () => {
-  name = document.getElementById("player-name").value;
-  await db.doc(`rooms/${room}/players/${uid}`).set({ name, score: 0 });
+  document.getElementById("question").innerText = q.text;
+  const choicesDiv = document.getElementById("choices");
+  choicesDiv.innerHTML = "";
 
-  document.getElementById("room-id").innerText = room;
-  show("screen-lobby");
-  if (isHost) btnStart.classList.remove("hidden");
-  listen();
-};
+  q.choices.forEach((choice, index) => {
+    const btn = document.createElement("button");
+    btn.innerText = choice;
+    btn.onclick = () => submitAnswer(index);
+    choicesDiv.appendChild(btn);
+  });
+});
 
-/* ================= LOBBY ================= */
-function listen() {
-  db.collection(`rooms/${room}/players`)
-    .onSnapshot(snap => {
-      document.getElementById("player-list").innerHTML =
-        snap.docs.map(d => `<li>${d.data().name}</li>`).join("");
+// ================= Answer =================
+function submitAnswer(choiceIndex) {
+  if (choiceIndex === questionData.answer) {
+    db.ref(room + "/players/" + playerId + "/score")
+      .transaction(score => (score || 0) + 1);
+  }
+  alert("ส่งคำตอบแล้ว!");
+}
+
+// ================= Scoreboard =================
+db.ref(room + "/players").on("value", snapshot => {
+  const players = snapshot.val() || {};
+  const scoreList = document.getElementById("scores");
+  scoreList.innerHTML = "";
+
+  Object.values(players)
+    .sort((a, b) => b.score - a.score)
+    .forEach(player => {
+      const li = document.createElement("li");
+      li.innerText = `${player.name} : ${player.score}`;
+      scoreList.appendChild(li);
     });
-
-  db.doc(`rooms/${room}`).onSnapshot(doc => {
-    const d = doc.data();
-    if (d.q >= 0) showQuestion(d.q);
-    if (d.status === "done") showResult();
-  });
-}
-
-btnStart.onclick = async () => {
-  await db.doc(`rooms/${room}`).update({ q: 0 });
-};
-
-/* ================= QUIZ ================= */
-function showQuestion(i) {
-  show("screen-quiz");
-  const q = QUESTIONS[i];
-  document.getElementById("question").innerText = q.q;
-
-  const box = document.getElementById("choices");
-  box.innerHTML = "";
-
-  q.c.forEach((txt, idx) => {
-    const b = document.createElement("button");
-    b.className = "w-full bg-indigo-500 text-white py-3 rounded-xl";
-    b.innerText = txt;
-    b.onclick = async () => {
-      if (idx === q.a) score += 100;
-      await db.doc(`rooms/${room}/players/${uid}`).update({ score });
-
-      if (isHost) {
-        if (i + 1 < QUESTIONS.length)
-          await db.doc(`rooms/${room}`).update({ q: i + 1 });
-        else
-          await db.doc(`rooms/${room}`).update({ status: "done" });
-      }
-    };
-    box.appendChild(b);
-  });
-}
-
-/* ================= RESULT ================= */
-async function showResult() {
-  show("screen-result");
-  const snap = await db.collection(`rooms/${room}/players`).get();
-  document.getElementById("score-list").innerHTML =
-    snap.docs.map(d => d.data())
-      .sort((a,b)=>b.score-a.score)
-      .map(p => `<li>${p.name} : ${p.score}</li>`).join("");
-}
+});
 </script>
 
 </body>
